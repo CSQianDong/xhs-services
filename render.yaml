@@ -1,0 +1,14 @@
+services:
+  # PDF URL 验证服务
+  - type: web
+    name: xhs-services
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+    # 确保服务器监听正确的端口
+    region: oregon

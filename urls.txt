@@ -1,0 +1,3 @@
+# PDF URLs Storage
+# Validated PDF URLs will be saved below this line
+https://arxiv.org/pdf/2508.21058
