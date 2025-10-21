@@ -1,18 +1,6 @@
 // Vercel Serverless Function
 const fetch = require('node-fetch');
 
-// 简单的内存存储（在真实环境中，这个会在每次函数调用时重置）
-let savedUrls = [];
-
-// 可以通过环境变量来初始化一些 URL
-if (process.env.SAVED_URLS) {
-    try {
-        savedUrls = JSON.parse(process.env.SAVED_URLS);
-    } catch (e) {
-        savedUrls = [];
-    }
-}
-
 // Vercel serverless function handler
 module.exports = async (req, res) => {
     // 处理 CORS
@@ -27,11 +15,14 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
         // 如果是 API 请求，返回保存的 URL 列表
         if (req.url === '/api/urls') {
+            // 返回示例 URL（在真实环境中，这些可以通过 console.log 查看）
             return res.json({
                 message: "保存的 PDF URL 列表",
-                urls: savedUrls,
-                count: savedUrls.length,
-                note: "这些 URL 保存在内存中，服务器重启后会重置。如需持久化存储，建议使用 Vercel KV 或 Postgres。"
+                urls: [
+                    "请查看 Vercel Dashboard 的 Function Logs 获取所有提交的 URL"
+                ],
+                count: 1,
+                note: "在 Vercel 环境中，所有验证成功的 URL 都通过 console.log 记录。请在 Vercel Dashboard → Functions → Function Logs 中查看完整的 URL 列表。"
             });
         }
 
@@ -132,48 +123,15 @@ module.exports = async (req, res) => {
         <button id="sendBtn">发送</button>
     </div>
 
+    <div class="input-group">
+        <button id="viewBtn" style="background-color: #28a745;">查看提交记录</button>
+    </div>
+
     <div id="result"></div>
     <div id="savedUrls" style="margin-top: 20px;"></div>
 </div>
 
 <script>
-// 显示保存的 URL 的函数
-async function loadSavedUrls() {
-    const savedUrlsDiv = document.getElementById('savedUrls');
-
-    try {
-        const response = await fetch('/api/urls');
-        const data = await response.json();
-
-        if (data.urls && data.urls.length > 0) {
-            let html = '<div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">';
-            html += '<h3 style="margin-top: 0; color: #495057;">已保存的 PDF URL (' + data.count + ' 个)</h3>';
-            html += '<ul style="margin: 0; padding-left: 20px;">';
-
-            data.urls.forEach((url) => {
-                html += '<li style="margin-bottom: 8px;">';
-                html += '<a href="' + url + '" target="_blank" style="color: #007bff; text-decoration: none;">' + url + '</a>';
-                html += ' <button onclick="copyToClipboard(\'' + url + '\')" style="margin-left: 10px; padding: 2px 8px; font-size: 12px; background-color: #17a2b8; color: white; border: none; border-radius: 3px; cursor: pointer;">复制</button>';
-                html += '</li>';
-            });
-
-            html += '</ul>';
-            html += '<p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;">' + data.note + '</p>';
-            html += '</div>';
-
-            savedUrlsDiv.innerHTML = html;
-        } else {
-            savedUrlsDiv.innerHTML = '<div style="background-color: #e7f3ff; padding: 15px; border-radius: 4px; border: 1px solid #b3d9ff; color: #0066cc;">暂无保存的 URL</div>';
-        }
-    } catch (err) {
-        console.error('获取保存的 URL 失败:', err);
-        savedUrlsDiv.innerHTML = '<div style="background-color: #f8d7da; padding: 15px; border-radius: 4px; border: 1px solid #f5c6cb; color: #721c24;">获取保存的 URL 失败，请刷新页面重试</div>';
-    }
-}
-
-// 页面加载时自动获取保存的 URL
-document.addEventListener('DOMContentLoaded', loadSavedUrls);
-
 document.getElementById('sendBtn').addEventListener('click', async () => {
     const url = document.getElementById('pdfUrl').value.trim();
     const resultDiv = document.getElementById('result');
@@ -206,9 +164,6 @@ document.getElementById('sendBtn').addEventListener('click', async () => {
             resultDiv.className = 'success';
             // 清空输入框
             document.getElementById('pdfUrl').value = '';
-
-            // 成功后刷新 URL 列表
-            setTimeout(loadSavedUrls, 500);
         } else {
             resultDiv.className = 'error';
         }
@@ -223,20 +178,40 @@ document.getElementById('sendBtn').addEventListener('click', async () => {
     }
 });
 
-// 复制到剪贴板功能
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        const originalText = event.target.textContent;
-        event.target.textContent = '已复制!';
-        event.target.style.backgroundColor = '#28a745';
-        setTimeout(() => {
-            event.target.textContent = originalText;
-            event.target.style.backgroundColor = '#17a2b8';
-        }, 1500);
-    }).catch(err => {
-        console.error('复制失败:', err);
-    });
-}
+// 查看提交记录
+document.getElementById('viewBtn').addEventListener('click', async () => {
+    const savedUrlsDiv = document.getElementById('savedUrls');
+    const viewBtn = document.getElementById('viewBtn');
+
+    viewBtn.disabled = true;
+    viewBtn.textContent = '加载中...';
+
+    try {
+        const response = await fetch('/api/urls');
+        const data = await response.json();
+
+        let html = '<div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">';
+        html += '<h3 style="margin-top: 0; color: #495057;">如何查看保存的 URL</h3>';
+        html += '<p style="margin: 10px 0;">' + data.note + '</p>';
+        html += '<div style="background-color: #e7f3ff; padding: 10px; border-radius: 4px; margin-top: 10px;">';
+        html += '<strong>查看步骤：</strong><br>';
+        html += '1. 访问 <a href="https://vercel.com/dashboard" target="_blank" style="color: #007bff;">Vercel Dashboard</a><br>';
+        html += '2. 找到你的 xhs-services 项目<br>';
+        html += '3. 点击 "Functions" 标签<br>';
+        html += '4. 查看 "Function Logs" 中的所有提交记录<br>';
+        html += '5. 搜索 "✅ PDF URL 验证成功" 找到所有成功保存的 URL';
+        html += '</div>';
+        html += '</div>';
+
+        savedUrlsDiv.innerHTML = html;
+    } catch (err) {
+        console.error(err);
+        savedUrlsDiv.innerHTML = '<div style="background-color: #f8d7da; padding: 15px; border-radius: 4px; border: 1px solid #f5c6cb; color: #721c24;">获取信息失败，请稍后再试</div>';
+    } finally {
+        viewBtn.disabled = false;
+        viewBtn.textContent = '查看提交记录';
+    }
+});
 
 // 支持 Enter 键提交
 document.getElementById('pdfUrl').addEventListener('keypress', (e) => {
@@ -283,15 +258,10 @@ document.getElementById('pdfUrl').addEventListener('keypress', (e) => {
                 return res.json({ message: '该URL不是PDF文件，检测到的类型: ' + (contentType || '未知') });
             }
 
-            // 保存到内存数组
-            if (!savedUrls.includes(pdfUrl)) {
-                savedUrls.push(pdfUrl);
-            }
-
+            // Vercel 环境下使用 console.log 记录而不是文件写入
             console.log('✅ PDF URL 验证成功:', pdfUrl);
-            console.log('📝 当前保存的 URL 总数:', savedUrls.length);
 
-            return res.json({ message: '保存成功！PDF URL 已验证并保存。' });
+            return res.json({ message: '保存成功！PDF URL 已验证并记录。' });
 
         } catch (error) {
             console.error('详细错误信息:', error);
