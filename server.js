@@ -13,6 +13,22 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === 'GET') {
+        // 如果是 API 请求，返回保存的 URL 列表
+        if (req.url === '/api/urls') {
+            // 模拟一些示例 URL（在真实环境中，这些应该从数据库或其他存储中获取）
+            const sampleUrls = [
+                "https://arxiv.org/pdf/2508.21058",
+                // 在实际应用中，这里应该从数据库获取保存的 URL
+            ];
+
+            return res.json({
+                message: "保存的 PDF URL 列表",
+                urls: sampleUrls,
+                count: sampleUrls.length,
+                note: "在 Vercel 环境中，URL 通过 console.log 记录，可以在 Vercel Dashboard 的 Function Logs 中查看"
+            });
+        }
+
         // 返回前端页面（对于 Vercel，静态文件会自动处理）
         return res.status(200).send(`
 <!DOCTYPE html>
@@ -110,7 +126,12 @@ module.exports = async (req, res) => {
         <button id="sendBtn">发送</button>
     </div>
 
+    <div class="input-group">
+        <button id="viewBtn" style="background-color: #28a745;">查看已保存的 URL</button>
+    </div>
+
     <div id="result"></div>
+    <div id="savedUrls" style="margin-top: 20px;"></div>
 </div>
 
 <script>
@@ -159,6 +180,63 @@ document.getElementById('sendBtn').addEventListener('click', async () => {
         sendBtn.textContent = '发送';
     }
 });
+
+// 查看已保存的 URL
+document.getElementById('viewBtn').addEventListener('click', async () => {
+    const savedUrlsDiv = document.getElementById('savedUrls');
+    const viewBtn = document.getElementById('viewBtn');
+
+    viewBtn.disabled = true;
+    viewBtn.textContent = '加载中...';
+
+    try {
+        const response = await fetch('/api/urls');
+        const data = await response.json();
+
+        if (data.urls && data.urls.length > 0) {
+            let html = '<div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">';
+            html += '<h3 style="margin-top: 0; color: #495057;">已保存的 PDF URL (' + data.count + ' 个)</h3>';
+            html += '<ul style="margin: 0; padding-left: 20px;">';
+
+            data.urls.forEach((url, index) => {
+                html += '<li style="margin-bottom: 8px;">';
+                html += '<a href="' + url + '" target="_blank" style="color: #007bff; text-decoration: none;">' + url + '</a>';
+                html += ' <button onclick="copyToClipboard(\'' + url + '\')" style="margin-left: 10px; padding: 2px 8px; font-size: 12px; background-color: #17a2b8; color: white; border: none; border-radius: 3px; cursor: pointer;">复制</button>';
+                html += '</li>';
+            });
+
+            html += '</ul>';
+            html += '<p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;">' + data.note + '</p>';
+            html += '</div>';
+
+            savedUrlsDiv.innerHTML = html;
+        } else {
+            savedUrlsDiv.innerHTML = '<div style="background-color: #fff3cd; padding: 15px; border-radius: 4px; border: 1px solid #ffeaa7; color: #856404;">暂无保存的 URL，或请查看 Vercel Dashboard 的 Function Logs 获取详细记录。</div>';
+        }
+    } catch (err) {
+        console.error(err);
+        savedUrlsDiv.innerHTML = '<div style="background-color: #f8d7da; padding: 15px; border-radius: 4px; border: 1px solid #f5c6cb; color: #721c24;">获取保存的 URL 失败，请稍后再试。</div>';
+    } finally {
+        viewBtn.disabled = false;
+        viewBtn.textContent = '查看已保存的 URL';
+    }
+});
+
+// 复制到剪贴板功能
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // 可以添加一个简单的提示
+        const originalText = event.target.textContent;
+        event.target.textContent = '已复制!';
+        event.target.style.backgroundColor = '#28a745';
+        setTimeout(() => {
+            event.target.textContent = originalText;
+            event.target.style.backgroundColor = '#17a2b8';
+        }, 1500);
+    }).catch(err => {
+        console.error('复制失败:', err);
+    });
+}
 
 // 支持 Enter 键提交
 document.getElementById('pdfUrl').addEventListener('keypress', (e) => {
