@@ -132,15 +132,48 @@ module.exports = async (req, res) => {
         <button id="sendBtn">发送</button>
     </div>
 
-    <div class="input-group">
-        <button id="viewBtn" style="background-color: #28a745;">查看已保存的 URL</button>
-    </div>
-
     <div id="result"></div>
     <div id="savedUrls" style="margin-top: 20px;"></div>
 </div>
 
 <script>
+// 显示保存的 URL 的函数
+async function loadSavedUrls() {
+    const savedUrlsDiv = document.getElementById('savedUrls');
+
+    try {
+        const response = await fetch('/api/urls');
+        const data = await response.json();
+
+        if (data.urls && data.urls.length > 0) {
+            let html = '<div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">';
+            html += '<h3 style="margin-top: 0; color: #495057;">已保存的 PDF URL (' + data.count + ' 个)</h3>';
+            html += '<ul style="margin: 0; padding-left: 20px;">';
+
+            data.urls.forEach((url) => {
+                html += '<li style="margin-bottom: 8px;">';
+                html += '<a href="' + url + '" target="_blank" style="color: #007bff; text-decoration: none;">' + url + '</a>';
+                html += ' <button onclick="copyToClipboard(\'' + url + '\')" style="margin-left: 10px; padding: 2px 8px; font-size: 12px; background-color: #17a2b8; color: white; border: none; border-radius: 3px; cursor: pointer;">复制</button>';
+                html += '</li>';
+            });
+
+            html += '</ul>';
+            html += '<p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;">' + data.note + '</p>';
+            html += '</div>';
+
+            savedUrlsDiv.innerHTML = html;
+        } else {
+            savedUrlsDiv.innerHTML = '<div style="background-color: #e7f3ff; padding: 15px; border-radius: 4px; border: 1px solid #b3d9ff; color: #0066cc;">暂无保存的 URL</div>';
+        }
+    } catch (err) {
+        console.error('获取保存的 URL 失败:', err);
+        savedUrlsDiv.innerHTML = '<div style="background-color: #f8d7da; padding: 15px; border-radius: 4px; border: 1px solid #f5c6cb; color: #721c24;">获取保存的 URL 失败，请刷新页面重试</div>';
+    }
+}
+
+// 页面加载时自动获取保存的 URL
+document.addEventListener('DOMContentLoaded', loadSavedUrls);
+
 document.getElementById('sendBtn').addEventListener('click', async () => {
     const url = document.getElementById('pdfUrl').value.trim();
     const resultDiv = document.getElementById('result');
@@ -173,6 +206,9 @@ document.getElementById('sendBtn').addEventListener('click', async () => {
             resultDiv.className = 'success';
             // 清空输入框
             document.getElementById('pdfUrl').value = '';
+
+            // 成功后刷新 URL 列表
+            setTimeout(loadSavedUrls, 500);
         } else {
             resultDiv.className = 'error';
         }
@@ -187,51 +223,9 @@ document.getElementById('sendBtn').addEventListener('click', async () => {
     }
 });
 
-// 查看已保存的 URL
-document.getElementById('viewBtn').addEventListener('click', async () => {
-    const savedUrlsDiv = document.getElementById('savedUrls');
-    const viewBtn = document.getElementById('viewBtn');
-
-    viewBtn.disabled = true;
-    viewBtn.textContent = '加载中...';
-
-    try {
-        const response = await fetch('/api/urls');
-        const data = await response.json();
-
-        if (data.urls && data.urls.length > 0) {
-            let html = '<div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">';
-            html += '<h3 style="margin-top: 0; color: #495057;">已保存的 PDF URL (' + data.count + ' 个)</h3>';
-            html += '<ul style="margin: 0; padding-left: 20px;">';
-
-            data.urls.forEach((url, index) => {
-                html += '<li style="margin-bottom: 8px;">';
-                html += '<a href="' + url + '" target="_blank" style="color: #007bff; text-decoration: none;">' + url + '</a>';
-                html += ' <button onclick="copyToClipboard(\'' + url + '\')" style="margin-left: 10px; padding: 2px 8px; font-size: 12px; background-color: #17a2b8; color: white; border: none; border-radius: 3px; cursor: pointer;">复制</button>';
-                html += '</li>';
-            });
-
-            html += '</ul>';
-            html += '<p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;">' + data.note + '</p>';
-            html += '</div>';
-
-            savedUrlsDiv.innerHTML = html;
-        } else {
-            savedUrlsDiv.innerHTML = '<div style="background-color: #fff3cd; padding: 15px; border-radius: 4px; border: 1px solid #ffeaa7; color: #856404;">暂无保存的 URL，或请查看 Vercel Dashboard 的 Function Logs 获取详细记录。</div>';
-        }
-    } catch (err) {
-        console.error(err);
-        savedUrlsDiv.innerHTML = '<div style="background-color: #f8d7da; padding: 15px; border-radius: 4px; border: 1px solid #f5c6cb; color: #721c24;">获取保存的 URL 失败，请稍后再试。</div>';
-    } finally {
-        viewBtn.disabled = false;
-        viewBtn.textContent = '查看已保存的 URL';
-    }
-});
-
 // 复制到剪贴板功能
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
-        // 可以添加一个简单的提示
         const originalText = event.target.textContent;
         event.target.textContent = '已复制!';
         event.target.style.backgroundColor = '#28a745';
